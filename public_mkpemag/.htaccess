@@ -1,0 +1,47 @@
+# EcR Deconturi eMag — top-level .htaccess
+# Ensures Apache serves index.php (the auth gate) by default, and that any
+# stale link or bookmark to /emag/index.html is redirected safely.
+
+# Prefer index.php over any other index file.
+DirectoryIndex index.php index.html
+
+# Redirect direct hits on /index.html → /emag/ (which Apache then resolves
+# to index.php). This protects against bypass if an old index.html is left
+# on the server by accident.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    # Match a request whose URI ends with /index.html (case-insensitive).
+    RewriteCond %{THE_REQUEST} \s/+(.*?)index\.html[\s?] [NC]
+    RewriteRule ^index\.html$ ./ [R=302,L]
+</IfModule>
+
+# Block direct access to dotfiles (defense in depth — typical hosts already do this).
+<FilesMatch "^\.">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Optional: send strict transport security if the host is HTTPS.
+<IfModule mod_headers.c>
+    Header always set Referrer-Policy "same-origin"
+    Header always set X-Content-Type-Options "nosniff"
+</IfModule>
+
+# Block direct web access to CLI-only scripts. cli_user.php already refuses
+# to run unless PHP_SAPI === 'cli', but this is a second, server-level layer:
+# even if that check is removed, the file stays unreachable over HTTP.
+# The CLI (php cli_user.php ...) is unaffected — .htaccess applies to HTTP only.
+<FilesMatch "^cli_user\.php$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+    </IfModule>
+</FilesMatch>
