@@ -2,9 +2,9 @@
 
 Aplicația smartBIZ Copilot pentru deconturile eMag Marketplace, cu backend PHP și SQLite.
 
-Build local: `2026.10.04.1`. Aplicația online: https://qcxemag.aiall.ro/.
+Build local: `2026.10.04.2`. Aplicația online: https://qcxemag.aiall.ro/.
 
-Ultimul deploy verificat: `2026.10.02.1`; noul build necesită publicarea celor trei fișiere din `public_mkpemag`: `index.php`, `configurable-data-table.js` și `configurable-data-table.css`.
+Ultimul deploy verificat: `2026.10.04.1`; noul build necesită publicarea celor trei fișiere din `public_mkpemag`: `index.php`, `configurable-data-table.js` și `configurable-data-table.css`.
 
 ## Structură și publicare
 
@@ -31,10 +31,12 @@ Comportamente adaptate din `Time-Mobility-Tracker/src/shared/components/Configur
 
 - Sortare multiplă (Shift + clic), filtre de text, numere și date, inclusiv gol/completat.
 - Afișare, ordine, lățime, fixare, tip, aliniere și zecimale pentru coloane.
-- Grupare, sumă, medie, minim, maxim și număr valori; sumele în valută sunt separate pe monede.
+- Grupare pe mai multe coloane, cu antete fixate și coloanele grupate ascunse în rânduri (păstrate în export); sumă, medie, minim, maxim și număr valori; sumele în valută sunt separate pe monede.
 - Selecție peste pagini, detalii, export Excel/CSV, print/PDF și grafic din rezultatul filtrat sau selecția curentă.
 - Configurații salvate în browser, separat pentru utilizator și tabel. Datele și permisiunile contabile rămân neschimbate.
 
 Verificare: `node --check public_mkpemag/configurable-data-table.js` și `node tests/configurable-data-table.test.cjs`. Testul de integrare folosește Node.js și `jsdom`; instalați această dependență de test sau indicați un proiect care o conține prin `QCX_TEST_NODE_MODULES`. Testele folosesc exclusiv date sintetice, fără acces la baze persistente.
 
-Pentru buildul 2026.10.04.1 au trecut verificarea sintaxei JavaScript, `git diff --check` și testele de integrare DOM. Verificarea vizuală în browser nu a putut rula în sesiunea de implementare (instrumentul de browser nu pornește); rămâne necesară înainte de deploy.
+Buildul 2026.10.04.1 a fost publicat și verificat în cPanel și în browser. Buildul local 2026.10.04.2 corectează gruparea multiplă, fixarea coloanelor și stilurile comune ale câmpurilor smartBIZ, inclusiv căutarea, inputurile fără tip și textarea.
+
+Pentru buildul 2026.10.04.2: verificare sintaxă JS și teste DOM (inclusiv grupare multiplă, compatibilitate cu configurațiile vechi și ordine de fixare), verificare vizuală locală cu date sintetice în light/dark, fără erori JavaScript. Antetele grupurilor au fost verificate la derulare; căutarea, salvarea configurației și textarea XML folosesc culorile și bordurile smartBIZ.

@@ -92,7 +92,7 @@ const QcxTable = (() => {
     const base=columns.map((c,i)=>({type:'text',visible:true,width:Math.max(110,originalHeads[i]?.offsetWidth||0),decimals:2,align:c.type==='number'?'right':'left',...c,label:c.label||originalHeads[i]?.textContent.trim(),index:i,total:c.total||'',op:'',filter:'',sort:'',pin:false}));
     const user=typeof _currentUser !== 'undefined' ? _currentUser?.id : 'anonymous';
     const storageKey=`qcx.table.v1.${user}.${key}`;
-    const defaults=()=>({columns:clone(base),group:'',compact:true,pageSize:50});
+    const defaults=()=>({columns:clone(base),groups:[],compact:true,pageSize:50});
     let state=defaults(),saved=[],selected=new Set(),lastRows=[],page=0;
     const rowId=identify || (r=>r.id ?? JSON.stringify(r));
     function reconcile(input) {
@@ -107,7 +107,8 @@ const QcxTable = (() => {
         });
         base.forEach(c=>{if(!seen.has(c.key))s.columns.push(clone(c));});
         if(!s.columns.some(c=>c.visible))s.columns[0].visible=true;
-        s.group=base.some(c=>c.key===input.group)?input.group:'';
+        s.groups=[...new Set(Array.isArray(input.groups)?input.groups:input.group?[input.group]:[])].filter(k=>base.some(c=>c.key===k));
+        s.columns=[...s.columns.filter(c=>c.pin),...s.columns.filter(c=>!c.pin)];
         s.compact=input.compact!==false;
         s.pageSize=[25,50,100,250].includes(input.pageSize)?input.pageSize:50;
       }
@@ -116,13 +117,14 @@ const QcxTable = (() => {
     try { const rec=JSON.parse(localStorage.getItem(storageKey)||'null'); if(rec){state=reconcile(rec.state);saved=Array.isArray(rec.saved)?rec.saved.slice(0,50):[];} } catch(_) { /* Invalid/unavailable storage leaves the original view intact. */ }
     function persist() {try {localStorage.setItem(storageKey,JSON.stringify({state,saved}));}catch(_){toast('Configurația nu poate fi salvată în acest browser.','error');}}
     const get=(r,c)=>{const source=base.find(b=>b.key===c.key);return source?.get?source.get(r):r[c.key];};
-    const visible=()=>state.columns.filter(c=>c.visible);
+    const visible=()=>state.columns.filter(c=>c.visible && !state.groups.includes(c.key));
+    const grouping=()=>state.groups.map(k=>state.columns.find(c=>c.key===k));
     function apply(rows) {
       lastRows=rows.filter(r=>state.columns.every(c=>matches(get(r,c),c)));
-      const sorts=state.columns.filter(c=>c.sort && c.key!==state.group);
-      const group=state.columns.find(c=>c.key===state.group);
+      const sorts=state.columns.filter(c=>c.sort && !state.groups.includes(c.key));
+      const groups=grouping();
       lastRows=lastRows.map((r,i)=>({r,i})).sort((a,b)=>{
-        if(group){const d=compare(get(a.r,group),get(b.r,group),group);if(d)return d;}
+        for(const group of groups){const d=compare(get(a.r,group),get(b.r,group),group);if(d)return d;}
         for(const c of sorts){const d=compare(get(a.r,c),get(b.r,c),c)*(c.sort==='desc'?-1:1);if(d)return d;}
         return a.i-b.i;
       }).map(x=>x.r);
@@ -133,6 +135,13 @@ const QcxTable = (() => {
     toolbar.innerHTML=`<button class="btn" data-qdt="config">⚙️ Coloane și filtre</button><select data-qdt="saved" aria-label="Configurație tabel"><option value="">Configurații salvate</option></select><button class="btn-icon" data-qdt="save" title="Salvează configurația" aria-label="Salvează configurația">💾</button><button class="btn-icon" data-qdt="delete" title="Șterge configurația salvată" aria-label="Șterge configurația salvată">🗑️</button><button class="btn-icon" data-qdt="reset" title="Resetează vizualizarea" aria-label="Resetează vizualizarea">↺</button><button class="btn" data-qdt="excel">Excel</button><button class="btn" data-qdt="csv">CSV</button><button class="btn" data-qdt="print">Print / PDF</button><button class="btn" data-qdt="chart">📊 Grafic</button><button class="btn-icon" data-qdt="help" aria-label="Informații tabel" title="Informații tabel">i</button><span class="hint" data-qdt="count"></span><button class="btn-icon" data-qdt="unselect" aria-label="Anulează selecția" title="Anulează selecția">☐</button>`;
     wrap.before(toolbar);
     table.classList.add('qdt-table');
+    if(typeof ResizeObserver!=='undefined'){
+      const headerObserver=new ResizeObserver(()=>{
+        if(!table.isConnected){headerObserver.disconnect();return;}
+        table.style.setProperty('--qdt-header-height',table.tHead.getBoundingClientRect().height+'px');
+      });
+      headerObserver.observe(table.tHead);
+    }
     function configs() {
       const sel=toolbar.querySelector('[data-qdt="saved"]');
       sel.innerHTML='<option value="">Configurații salvate</option>'+saved.map((c,i)=>`<option value="${i}">${escape(c.name)}</option>`).join('');
@@ -215,11 +224,27 @@ const QcxTable = (() => {
       header.querySelector('input').checked=rows.length>0&&rows.every(r=>selected.has(text(rowId(r))));
       header.querySelector('input').onchange=e=>{rows.forEach(r=>e.target.checked?selected.add(text(rowId(r))):selected.delete(text(rowId(r))));renderedSelection(rows);};
       // Group summaries use all filtered rows, including those on other pages.
-      const group=state.columns.find(c=>c.key===state.group);
-      if(group){
-        const groups=new Map();lastRows.forEach(r=>{const k=text(get(r,group));if(!groups.has(k))groups.set(k,[]);groups.get(k).push(r);});
-        let prev=null;
-        domRows.forEach((tr,i)=>{if(!rows[i])return;const k=text(get(rows[i],group));if(k===prev)return;prev=k;const gr=document.createElement('tr');gr.className='qdt-group';gr.innerHTML=`<td colspan="${cols.length+1+(actionIndex>=0?1:0)}"><b>${escape(group.label)}: ${escape(k||'—')}</b> · ${groups.get(k).length} rânduri ${cols.filter(c=>c.total).map(c=>` · ${escape(c.label)} (${escape(c.total)}): ${escape(summary(groups.get(k),c))}`).join('')}</td>`;tr.before(gr);});
+      const groups=grouping();
+      if(groups.length){
+        const buckets=new Map(),groupKey=(r,level)=>JSON.stringify(groups.slice(0,level+1).map(c=>text(get(r,c))));
+        lastRows.forEach(r=>groups.forEach((_,level)=>{const k=groupKey(r,level);if(!buckets.has(k))buckets.set(k,[]);buckets.get(k).push(r);}));
+        let previous=[];
+        // Keep each level below the table header and its parent group headers.
+        const headerHeight=table.tHead.getBoundingClientRect().height;
+        table.style.setProperty('--qdt-header-height',headerHeight+'px');
+        domRows.forEach((tr,i)=>{
+          if(!rows[i])return;
+          const keys=groups.map((_,level)=>groupKey(rows[i],level));
+          groups.forEach((group,level)=>{
+            if(keys[level]===previous[level])return;
+            const members=buckets.get(keys[level]),gr=document.createElement('tr');
+            gr.className='qdt-group';gr.dataset.level=level;
+            gr.style.setProperty('--qdt-group-level',level);
+            gr.innerHTML=`<td colspan="${cols.length+1+(actionIndex>=0?1:0)}"><div class="qdt-group-label" style="padding-left:${level*16}px"><b>${escape(group.label)}: ${escape(text(get(rows[i],group))||'—')}</b> · ${members.length} rânduri ${cols.filter(c=>c.total).map(c=>` · ${escape(c.label)} (${escape(c.total)}): ${escape(summary(members,c))}`).join('')}</div></td>`;
+            tr.before(gr);
+          });
+          previous=keys;
+        });
       }
       let foot=table.querySelector('tfoot.qdt-footer');if(!foot){foot=document.createElement('tfoot');foot.className='qdt-footer';table.append(foot);}
       foot.innerHTML=cols.some(c=>c.total)?`<tr><td>Σ</td>${cols.map(c=>`<td style="text-align:${c.align}" title="${escape(c.total)}">${escape(summary(lastRows,c))}</td>`).join('')}${actionIndex>=0?'<td></td>':''}</tr>`:'';
@@ -231,8 +256,13 @@ const QcxTable = (() => {
     function details(row,trigger){modal(`${title} · Detalii`, `<dl class="qdt-details">${state.columns.map(c=>`<dt>${escape(c.label)}</dt><dd>${escape(format(get(row,c),c))||'—'}</dd>`).join('')}</dl>`,trigger);}
     function settings(trigger) {
       const draft=clone(state);
-      const dlg=modal(`${title} · Coloane și filtre`, `<form class="qdt-settings"><div class="qdt-toolbar"><label>Grupare <select name="group"><option value="">Fără grupare</option>${state.columns.map(c=>`<option value="${escape(c.key)}" ${c.key===state.group?'selected':''}>${escape(c.label)}</option>`).join('')}</select></label><label><input name="compact" type="checkbox" ${state.compact?'checked':''}/> Compact</label><input type="search" class="filter" name="columnSearch" placeholder="Caută coloană" aria-label="Caută coloană"/><button class="btn btn-primary" type="submit">Aplică</button></div><div class="table-wrap qdt-settings-wrap"><table class="data-table compact"><thead><tr><th>Coloană</th><th>Afișare</th><th>Fixă</th><th>Ordine</th><th>Tip</th><th>Aliniere</th><th>Lățime</th><th>Zecimale</th><th>Agregare</th><th>Filtru</th><th>Valoare</th></tr></thead><tbody>${draft.columns.map(c=>`<tr data-key="${escape(c.key)}"><td>${escape(c.label)}</td><td><input type="checkbox" data-field="visible" aria-label="Afișare ${escape(c.label)}" ${c.visible?'checked':''}/></td><td><input type="checkbox" data-field="pin" aria-label="Fixă ${escape(c.label)}" ${c.pin?'checked':''}/></td><td><button type="button" data-move="-1" aria-label="Mută în sus ${escape(c.label)}">↑</button><button type="button" data-move="1" aria-label="Mută în jos ${escape(c.label)}">↓</button></td><td><select data-field="type" aria-label="Tip ${escape(c.label)}">${[['text','Text'],['number','Număr'],['date','Dată']].map(([v,l])=>`<option value="${v}" ${v===c.type?'selected':''}>${l}</option>`).join('')}</select></td><td><select data-field="align" aria-label="Aliniere ${escape(c.label)}">${[['left','Stânga'],['center','Centru'],['right','Dreapta']].map(([v,l])=>`<option value="${v}" ${v===c.align?'selected':''}>${l}</option>`).join('')}</select></td><td><input type="number" min="80" max="600" value="${c.width}" data-field="width" aria-label="Lățime ${escape(c.label)}"/></td><td><input type="number" min="0" max="6" value="${c.decimals}" data-field="decimals" aria-label="Zecimale ${escape(c.label)}"/></td><td><select data-field="total" aria-label="Agregare ${escape(c.label)}">${[['','—'],['sum','Sumă'],['avg','Medie'],['min','Minim'],['max','Maxim'],['count','Număr']].map(([v,l])=>`<option value="${v}" ${v===c.total?'selected':''}>${l}</option>`).join('')}</select></td><td><select data-field="op" aria-label="Filtru ${escape(c.label)}">${[['','Fără filtru'],['contains','Conține'],['starts','Începe cu'],['eq','='],['ne','≠'],['gt','>'],['ge','≥'],['lt','<'],['le','≤'],['empty','Gol'],['filled','Completat']].map(([v,l])=>`<option value="${v}" ${v===c.op?'selected':''}>${l}</option>`).join('')}</select></td><td><input data-field="filter" value="${escape(c.filter)}" aria-label="Valoare filtru ${escape(c.label)}"/></td></tr>`).join('')}</tbody></table></div></form>`,trigger);
+      const dlg=modal(`${title} · Coloane și filtre`, `<form class="qdt-settings"><div class="qdt-toolbar"><label>Grupare <select name="group" multiple aria-label="Coloane de grupare">${[...grouping(),...state.columns.filter(c=>!state.groups.includes(c.key))].map(c=>`<option value="${escape(c.key)}" ${state.groups.includes(c.key)?'selected':''}>${escape(c.label)}</option>`).join('')}</select><span class="hint">Ctrl / ⌘ + clic pentru mai multe coloane</span></label><label><input name="compact" type="checkbox" ${state.compact?'checked':''}/> Compact</label><input type="search" class="filter" name="columnSearch" placeholder="Caută coloană" aria-label="Caută coloană"/><button class="btn btn-primary" type="submit">Aplică</button></div><div class="table-wrap qdt-settings-wrap"><table class="data-table compact"><thead><tr><th>Coloană</th><th>Afișare</th><th>Fixă</th><th>Ordine</th><th>Tip</th><th>Aliniere</th><th>Lățime</th><th>Zecimale</th><th>Agregare</th><th>Filtru</th><th>Valoare</th></tr></thead><tbody>${draft.columns.map(c=>`<tr data-key="${escape(c.key)}"><td>${escape(c.label)}</td><td><input type="checkbox" data-field="visible" aria-label="Afișare ${escape(c.label)}" ${c.visible?'checked':''}/></td><td><input type="checkbox" data-field="pin" aria-label="Fixă ${escape(c.label)}" ${c.pin?'checked':''}/></td><td><button type="button" data-move="-1" aria-label="Mută în sus ${escape(c.label)}">↑</button><button type="button" data-move="1" aria-label="Mută în jos ${escape(c.label)}">↓</button></td><td><select data-field="type" aria-label="Tip ${escape(c.label)}">${[['text','Text'],['number','Număr'],['date','Dată']].map(([v,l])=>`<option value="${v}" ${v===c.type?'selected':''}>${l}</option>`).join('')}</select></td><td><select data-field="align" aria-label="Aliniere ${escape(c.label)}">${[['left','Stânga'],['center','Centru'],['right','Dreapta']].map(([v,l])=>`<option value="${v}" ${v===c.align?'selected':''}>${l}</option>`).join('')}</select></td><td><input type="number" min="80" max="600" value="${c.width}" data-field="width" aria-label="Lățime ${escape(c.label)}"/></td><td><input type="number" min="0" max="6" value="${c.decimals}" data-field="decimals" aria-label="Zecimale ${escape(c.label)}"/></td><td><select data-field="total" aria-label="Agregare ${escape(c.label)}">${[['','—'],['sum','Sumă'],['avg','Medie'],['min','Minim'],['max','Maxim'],['count','Număr']].map(([v,l])=>`<option value="${v}" ${v===c.total?'selected':''}>${l}</option>`).join('')}</select></td><td><select data-field="op" aria-label="Filtru ${escape(c.label)}">${[['','Fără filtru'],['contains','Conține'],['starts','Începe cu'],['eq','='],['ne','≠'],['gt','>'],['ge','≥'],['lt','<'],['le','≤'],['empty','Gol'],['filled','Completat']].map(([v,l])=>`<option value="${v}" ${v===c.op?'selected':''}>${l}</option>`).join('')}</select></td><td><input data-field="filter" value="${escape(c.filter)}" aria-label="Valoare filtru ${escape(c.label)}"/></td></tr>`).join('')}</tbody></table></div></form>`,trigger);
       const form=dlg.overlay.querySelector('form');
+      form.onchange=e=>{
+        if(e.target.dataset.field!=='pin')return;
+        const row=e.target.closest('tr'),siblings=[...row.parentElement.children].filter(tr=>tr!==row),pinned=siblings.filter(tr=>tr.querySelector('[data-field=pin]').checked);
+        if(pinned.length)pinned[pinned.length-1].after(row);else row.parentElement.prepend(row);
+      };
       form.oninput=e=>{if(e.target.name==='columnSearch'){const q=e.target.value.toLocaleLowerCase('ro');form.querySelectorAll('tr[data-key]').forEach(tr=>tr.hidden=!tr.cells[0].textContent.toLocaleLowerCase('ro').includes(q));}};
       form.onclick=e=>{const b=e.target.closest('[data-move]');if(!b)return;const tr=b.closest('tr'),delta=+b.dataset.move,target=delta<0?tr.previousElementSibling:tr.nextElementSibling;if(target){delta<0?target.before(tr):target.after(tr);}};
       form.onsubmit=e=>{
@@ -240,10 +270,11 @@ const QcxTable = (() => {
         if(!draft.columns.some(c=>c.visible)){toast('Păstrează cel puțin o coloană vizibilă.','error');return;}
         const invalid=draft.columns.find(c=>c.total && ['sum','avg'].includes(c.total) && c.type!=='number');
         if(invalid){toast(`Sumă / medie necesită tip Număr: ${invalid.label}.`,'error');return;}
-        draft.group=form.elements.group.value;draft.compact=form.elements.compact.checked;state=reconcile(draft);dlg.close();changed();
+        draft.groups=[...form.elements.group.selectedOptions].map(o=>o.value);draft.compact=form.elements.compact.checked;state=reconcile(draft);dlg.close();changed();
       };
     }
-    function exportMatrix(){const cols=visible();return [cols.map(c=>c.label),...scope().map(r=>cols.map(c=>{const v=get(r,c);return c.type==='number'?number(v):c.type==='date'?format(v,c):text(v);} ))];}
+    const outputColumns=()=>[...grouping(),...visible()];
+    function exportMatrix(){const cols=outputColumns();return [cols.map(c=>c.label),...scope().map(r=>cols.map(c=>{const v=get(r,c);return c.type==='number'?number(v):c.type==='date'?format(v,c):text(v);} ))];}
     function download(data,name,type){const a=document.createElement('a'),url=URL.createObjectURL(new Blob([data],{type}));a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
     toolbar.onclick=async e=>{
       const b=e.target.closest('[data-qdt]');if(!b || b.tagName==='SELECT')return;
@@ -261,7 +292,7 @@ const QcxTable = (() => {
       if(action==='excel'){if(typeof XLSX==='undefined'){toast('Biblioteca Excel nu este încărcată.','error');return;}const wb=XLSX.utils.book_new(),ws=XLSX.utils.aoa_to_sheet(exportMatrix());XLSX.utils.book_append_sheet(wb,ws,'Date');XLSX.writeFile(wb,`${key}_${new Date().toISOString().slice(0,10)}.xlsx`);}
       if(action==='csv'){const matrix=exportMatrix(),safe=v=>{const s=text(v);return /^[=+@\-\t\r]/.test(s) && typeof v!=='number'?"'"+s:s;};download('\ufeff'+matrix.map(r=>r.map(v=>'"'+safe(v).replace(/"/g,'""')+'"').join(';')).join('\r\n'),`${key}.csv`,'text/csv;charset=utf-8');}
       if(action==='print'){
-        const cols=visible(),rows=scope();const dlg=modal(`${title} · Print / PDF`, `<button class="btn" data-print>Printează / Salvează PDF</button><div class="qdt-print-content"><h2>${escape(title)}</h2><p>${rows.length} rânduri · ${new Date().toLocaleDateString('ro-RO')}</p><table><thead><tr>${cols.map(c=>`<th>${escape(c.label)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td>${escape(format(get(r,c),c))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`,b);
+        const cols=outputColumns(),rows=scope();const dlg=modal(`${title} · Print / PDF`, `<button class="btn" data-print>Printează / Salvează PDF</button><div class="qdt-print-content"><h2>${escape(title)}</h2><p>${rows.length} rânduri · ${new Date().toLocaleDateString('ro-RO')}</p><table><thead><tr>${cols.map(c=>`<th>${escape(c.label)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td>${escape(format(get(r,c),c))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`,b);
         dlg.overlay.querySelector('[data-print]').onclick=()=>{const done=()=>{document.body.classList.remove('qdt-print-mode');window.removeEventListener('afterprint',done);};document.body.classList.add('qdt-print-mode');window.addEventListener('afterprint',done);try{window.print();}catch(_){done();}};
       }
       if(action==='chart')chart(b);
@@ -270,7 +301,7 @@ const QcxTable = (() => {
     function chart(trigger){
       if(typeof Chart==='undefined'){toast('Biblioteca de grafice nu este încărcată.','error');return;}
       const cols=state.columns,nums=cols.filter(c=>c.type==='number');
-      const dlg=modal(`${title} · Grafic`, `<div class="qdt-toolbar"><label>Grupare <select data-group>${cols.map(c=>`<option value="${escape(c.key)}" ${c.key===state.group?'selected':''}>${escape(c.label)}</option>`).join('')}</select></label><label>Valoare <select data-value><option value="">Număr rânduri</option>${nums.map(c=>`<option value="${escape(c.key)}">${escape(c.label)}</option>`).join('')}</select></label><label>Agregare <select data-metric><option value="sum">Sumă</option><option value="avg">Medie</option><option value="min">Minim</option><option value="max">Maxim</option></select></label></div><div class="qdt-chart"><canvas></canvas></div><div data-kpi class="totals"></div>`,trigger);
+      const dlg=modal(`${title} · Grafic`, `<div class="qdt-toolbar"><label>Grupare <select data-group>${cols.map(c=>`<option value="${escape(c.key)}" ${state.groups.includes(c.key)?'selected':''}>${escape(c.label)}</option>`).join('')}</select></label><label>Valoare <select data-value><option value="">Număr rânduri</option>${nums.map(c=>`<option value="${escape(c.key)}">${escape(c.label)}</option>`).join('')}</select></label><label>Agregare <select data-metric><option value="sum">Sumă</option><option value="avg">Medie</option><option value="min">Minim</option><option value="max">Maxim</option></select></label></div><div class="qdt-chart"><canvas></canvas></div><div data-kpi class="totals"></div>`,trigger);
       let chartObject=null;
       const draw=()=>{const g=cols.find(c=>c.key===dlg.overlay.querySelector('[data-group]').value),v=cols.find(c=>c.key===dlg.overlay.querySelector('[data-value]').value),metric=dlg.overlay.querySelector('[data-metric]').value,groups=new Map();scope().forEach(r=>{const k=text(get(r,g))+(v?.currency&&currency?' · '+text(currency(r)):'');if(!groups.has(k))groups.set(k,[]);groups.get(k).push(r);});const entries=[...groups].map(([label,rs])=>({label,value:v?aggregate(rs,{...v,total:metric},get):rs.length})).sort((a,b)=>(b.value??0)-(a.value??0));chartObject?.destroy();chartObject=new Chart(dlg.overlay.querySelector('canvas'),{type:'bar',data:{labels:entries.slice(0,30).map(e=>e.label||'—'),datasets:[{label:v?v.label:'Număr rânduri',data:entries.slice(0,30).map(e=>e.value),backgroundColor:'#168b9a'}]},options:{responsive:true,maintainAspectRatio:false}});dlg.overlay.querySelector('[data-kpi]').textContent=`${scope().length} rânduri · ${groups.size} grupuri${entries.length>30?' · primele 30 grupuri afișate':''}`;};
       dlg.overlay.querySelectorAll('select').forEach(s=>s.onchange=draw);draw();

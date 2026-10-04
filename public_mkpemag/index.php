@@ -1,7 +1,7 @@
 <?php
 /**
  * EcR Deconturi eMag — Front Controller
- * Build: 2026.10.04.1 — tabele detaliate configurabile
+ * Build: 2026.10.04.2 — tabele detaliate configurabile
  * ------------------------------------------------------------------
  * Session gate. Unauthenticated visitors only see a tiny login (or
  * first-time setup) page. The full application HTML is served only
@@ -291,14 +291,14 @@ header('X-Frame-Options: SAMEORIGIN');
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>smartBIZ Copilot · EcR Deconturi eMag · 2026.10.04.1</title>
+<title>smartBIZ Copilot · EcR Deconturi eMag · 2026.10.04.2</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
-<link rel="stylesheet" href="configurable-data-table.css?v=2026.10.04.1">
-<script src="configurable-data-table.js?v=2026.10.04.1"></script>
+<link rel="stylesheet" href="configurable-data-table.css?v=2026.10.04.2">
+<script src="configurable-data-table.js?v=2026.10.04.2"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -1645,14 +1645,14 @@ body.help-open .sb-helpBtn {
 /* ========== Forms ========== */
 .form-row { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
 .form-row label { font-size: .85rem; color: var(--text-muted); }
-input[type=text], input[type=number], input[type=date], input[type=file], select {
+input:not([type]), input[type=text], input[type=search], input[type=email], input[type=password], input[type=url], input[type=tel], input[type=time], input[type=datetime-local], input[type=number], input[type=date], input[type=file], select, textarea {
   padding: .45rem .65rem;
   border: 1px solid var(--border);
   border-radius: 6px;
   font-size: .875rem;
   background: var(--surface); color: var(--text); font-family: inherit;
 }
-input[type=text]:focus, input[type=number]:focus, input[type=date]:focus, select:focus {
+input:not([type]):focus, input[type=text]:focus, input[type=search]:focus, input[type=email]:focus, input[type=password]:focus, input[type=url]:focus, input[type=tel]:focus, input[type=time]:focus, input[type=datetime-local]:focus, input[type=number]:focus, input[type=date]:focus, select:focus, textarea:focus {
   outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light);
 }
 
@@ -1688,6 +1688,10 @@ input[type=file]::file-selector-button:hover {
 [data-theme="dark"] input[type=file] {
   color-scheme: dark;   /* tells browser to use dark UI for file picker */
 }
+textarea { resize:vertical; }
+input::placeholder, textarea::placeholder { color:var(--text-muted);opacity:1; }
+input[type=checkbox], input[type=radio] { accent-color:var(--primary); }
+[data-theme="dark"] input, [data-theme="dark"] textarea { color-scheme:dark; }
 .filter { width: 100%; }
 .checkbox { display: flex; align-items: center; gap: .5rem; cursor: pointer; }
 .hint { color: var(--text-muted); font-size: .8rem; }

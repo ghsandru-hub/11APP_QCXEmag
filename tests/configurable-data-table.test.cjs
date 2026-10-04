@@ -80,5 +80,29 @@ function click(el){assert.ok(el,'control exists');el.click();}
   click(rootEl.querySelector('[data-qdt=unselect]'));click(rootEl.querySelector('[data-qdt=print]'));
   assert.equal(w.document.querySelectorAll('.qdt-print-content tbody tr').length,3,'Print includes all rows across pages');
   click(w.document.querySelector('.qdt-overlay .modal-close'));
+  // Grouping hides grouped columns only in the table, preserving them in exports.
+  view.setState({...view.getState(),groups:['c','n']});
+  assert.equal(rootEl.querySelectorAll('thead th').length,1);
+  assert.equal(rootEl.querySelectorAll('.qdt-group[data-level="0"]').length,2);
+  assert.equal(rootEl.querySelectorAll('.qdt-group[data-level="1"]').length,2);
+  assert.match(rootEl.querySelector('.qdt-group').textContent,/EUR/);
+  assert.equal(view.exportMatrix()[0].join(','),'Devise,Valeur');
+  click(rootEl.querySelector('[data-qdt=config]'));
+  assert.equal(w.document.querySelector('select[name=group]').selectedOptions.length,2);
+  click(w.document.querySelector('.qdt-overlay .modal-close'));
+  // Older single-column saved grouping is migrated.
+  view.setState({...view.getState(),groups:undefined,group:'c'});
+  assert.equal(view.getState().groups.join(','),'c');
+  view.setState({...view.getState(),groups:[]});
+  click(rootEl.querySelector('[data-qdt=config]'));
+  const pinForm=w.document.querySelector('.qdt-settings');
+  for(const key of ['c','n']){
+    const box=pinForm.querySelector(`[data-key="${key}"] [data-field=pin]`);
+    box.checked=true;box.dispatchEvent(new w.Event('change',{bubbles:true}));
+  }
+  assert.equal([...pinForm.querySelectorAll('tr[data-key]')].map(r=>r.dataset.key).join(','),'c,n');
+  pinForm.dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
+  assert.equal(view.getState().columns.map(c=>c.key).join(','),'c,n');
+  assert.equal(rootEl.querySelectorAll('thead .qdt-pin').length,2);
   console.log('PASS: syntax, typed filters, dates, sort, selection, all-result export, currency-safe totals, configuration restoration, derived fields, six screens, original CRUD modal, user isolation');
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>dom.window.close());
