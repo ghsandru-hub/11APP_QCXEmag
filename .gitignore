@@ -9,3 +9,6 @@
 __pycache__/
 private_mkpemag/data/*
 !private_mkpemag/data/.htaccess
+
+.test-runtime/
+node_modules/

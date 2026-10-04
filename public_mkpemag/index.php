@@ -1,7 +1,7 @@
 <?php
 /**
  * EcR Deconturi eMag — Front Controller
- * Build: 2026.10.02.1 — import tipuri documente noi
+ * Build: 2026.10.04.1 — tabele detaliate configurabile
  * ------------------------------------------------------------------
  * Session gate. Unauthenticated visitors only see a tiny login (or
  * first-time setup) page. The full application HTML is served only
@@ -291,12 +291,14 @@ header('X-Frame-Options: SAMEORIGIN');
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>smartBIZ Copilot · EcR Deconturi eMag · 2026.10.02.1</title>
+<title>smartBIZ Copilot · EcR Deconturi eMag · 2026.10.04.1</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<link rel="stylesheet" href="configurable-data-table.css?v=2026.10.04.1">
+<script src="configurable-data-table.js?v=2026.10.04.1"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -5895,11 +5897,13 @@ async function renderNomenclator(root) {
     return `<span class="status ${cls}" title="${escapeAttr(raw)}">${lbl}</span>`;
   };
 
+  const tableView = QcxTable.create({paginate:true,body:'nomBody',key:'nomenclator',title:'Nomenclator',onChange:()=>renderRows($('#nomFilter').value),columns:[{key:'Cod'},{key:'Tranzactie'},{key:'Articol'},{key:'Cont factura'},{key:'Cont articol'},{key:'Formula contabila'},{key:'TipOpsTVA'},{key:'TipTVA',type:'number',decimals:0},{key:'Cost Canal'},{key:'Canal'},{key:'Status'}]});
   const renderRows = (filter = '') => {
     const f = filter.toLowerCase();
-    const filtered = data.filter(r =>
+    let filtered = data.filter(r =>
       !f || Object.values(r).some(v => String(v||'').toLowerCase().includes(f))
     );
+    filtered = tableView.pageRows(tableView.apply(filtered));
     $('#nomBody').innerHTML = filtered.map(r => `
       <tr data-cod="${escapeAttr(r.Cod)}">
         <td><b>${esc(r.Cod)}</b></td>
@@ -5921,6 +5925,7 @@ async function renderNomenclator(root) {
       </tr>
     `).join('') || '<tr><td colspan="12" class="empty">Niciun rezultat.</td></tr>';
 
+    tableView.rendered(filtered);
     $$('#nomBody [data-act]').forEach(btn => {
       btn.onclick = async () => {
         const tr = btn.closest('tr');
@@ -6020,11 +6025,13 @@ async function renderMarketplaces(root) {
     </div>
   `;
 
+  const tableView = QcxTable.create({paginate:true,body:'mpBody',key:'marketplaces',title:'Marketplaces',onChange:()=>renderRows($('#mpFilter').value),columns:[{key:'Marketplace'},{key:'IdSeller'},{key:'Parteneri'},{key:'CUI'},{key:'AF'},{key:'CotaTVA',type:'number'},{key:'Moneda'},{key:'Demultiplicator',type:'number',decimals:0},{key:'Tara',get:r=>[r.Tara,r.Localitate].filter(Boolean).join(', ')}]});
   const renderRows = (filter = '') => {
     const f = filter.toLowerCase();
-    const filtered = data.filter(r =>
+    let filtered = data.filter(r =>
       !f || Object.values(r).some(v => String(v||'').toLowerCase().includes(f))
     );
+    filtered = tableView.pageRows(tableView.apply(filtered));
     $('#mpBody').innerHTML = filtered.map(m => `
       <tr data-id="${escAttr(m.IdSeller)}" data-mkp="${escAttr(m.Marketplace)}">
         <td><b>${esc(m.Marketplace)}</b></td>
@@ -6044,6 +6051,7 @@ async function renderMarketplaces(root) {
       </tr>
     `).join('') || '<tr><td colspan="10" class="empty">Niciun rezultat.</td></tr>';
 
+    tableView.rendered(filtered);
     $$('#mpBody [data-act]').forEach(btn => {
       btn.onclick = async () => {
         const tr = btn.closest('tr');
@@ -6183,10 +6191,12 @@ async function renderCursValutar(root) {
   updateBnrLink();
   yearSel.onchange = updateBnrLink;
 
+  const tableView = QcxTable.create({paginate:true,body:'cursBody',key:'cursValutar',title:'Curs Valutar',onChange:()=>renderRows($('#cursFilter').value),columns:[{key:'Data',type:'date'},{key:'Valuta'},{key:'Demultiplicator',type:'number',decimals:0},{key:'Curs',type:'number',decimals:4},{key:'Sursa'}]});
   const renderRows = (filter = '') => {
     const f = filter.toLowerCase();
     const tbody = $('#cursBody');
-    const filtered = data.filter(r => !f || (r.Data + r.Valuta).toLowerCase().includes(f));
+    let filtered = data.filter(r => !f || (r.Data + r.Valuta).toLowerCase().includes(f));
+    filtered = tableView.pageRows(tableView.apply(filtered));
     tbody.innerHTML = filtered.map(r => `
       <tr>
         <td>${r.Data}</td>
@@ -6196,6 +6206,7 @@ async function renderCursValutar(root) {
         <td>${r.Sursa || ''}</td>
       </tr>
     `).join('') || '<tr><td colspan="5" class="empty">Niciun curs stocat. Importă din BNR.</td></tr>';
+    tableView.rendered(filtered);
   };
   renderRows();
   $('#cursFilter').oninput = (e) => renderRows(e.target.value);
@@ -6674,10 +6685,25 @@ async function renderRawData(root) {
   let page = 0;
   let PAGE_SIZE = 50;
 
+  const tableView = QcxTable.create({body:'rawBody',key:'rawData',title:'Date eMag',identify:r=>r.id,currency:r=>mpById[Number(r.IDSeller)]?.Moneda || '',onChange:()=>{page=0;PAGE_SIZE=tableView.getPageSize();$('#pageSize').value=String(PAGE_SIZE);renderRows();},columns:[
+    {key:'Canal',get:r=>mpById[Number(r.IDSeller)]?.Marketplace || `(ID ${r.IDSeller})`},
+    {key:'Moneda',get:r=>mpById[Number(r.IDSeller)]?.Moneda || ''},
+    {key:'Rezidenta',get:r=>mpById[Number(r.IDSeller)]?.AF || ''},
+    ...['IDSeller','IDClient','IDSupplier','IDFP','Seller','CIFSeller','ContBancar','EntitateDante','CIFDante','Document','TipFactura','SerieNumar'].map(key=>({key})),
+    {key:'ValoareFaraTVA',type:'number',total:'sum',currency:true},
+    {key:'ValoareTVA',type:'number',total:'sum',currency:true},
+    {key:'CotaTVA',type:'number'}, {key:'ValoareCuTVA',type:'number',total:'sum',currency:true},
+    {key:'CodTaxaSAP'}, {key:'BalantaFactura',type:'number',currency:true},
+    {key:'DataEmitere',type:'date'}, {key:'DataScadenta',type:'date'},
+    {key:'SerieNumarFP'}, {key:'DataPayout',type:'date'}, {key:'MKTPFinance'}
+  ]});
+  PAGE_SIZE = tableView.getPageSize();
+  $('#pageSize').value = String(PAGE_SIZE);
+
   const renderRows = () => {
     const f = ($('#rawFilter').value || '').toLowerCase();
     const cf = $('#canalFilter').value;
-    const filtered = data.filter(r => {
+    let filtered = data.filter(r => {
       const mp = mpById[Number(r.IDSeller)];
       const canal = mp ? mp.Marketplace : `(ID ${r.IDSeller})`;
       if (cf && canal !== cf) return false;
@@ -6685,6 +6711,7 @@ async function renderRawData(root) {
       const haystack = [...Object.values(r), canal, mp?.Moneda, mp?.AF];
       return haystack.some(v => String(v||'').toLowerCase().includes(f));
     });
+    filtered = tableView.apply(filtered);
     const total = filtered.length;
     const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
     if (page >= totalPages) page = totalPages - 1;
@@ -6735,6 +6762,9 @@ async function renderRawData(root) {
     `;
     }).join('') || '<tr><td colspan="27" class="empty">Niciun rezultat. Apasă "Adaugă factură" sau importă un Excel.</td></tr>';
 
+    tableView.rendered(slice);
+    $('#prevPage').disabled = page === 0;
+    $('#nextPage').disabled = page >= totalPages - 1;
     $('#pageInfo').textContent = `Pagina ${page + 1} / ${totalPages}`;
     $('#rawCount').textContent = `${total} ${total === 1 ? 'rezultat' : 'rezultate'}${cf||f ? ` (din ${data.length})` : ''}`;
 
@@ -6763,7 +6793,7 @@ async function renderRawData(root) {
   $('#canalFilter').onchange = () => { page = 0; renderRows(); };
   $('#prevPage').onclick = () => { page--; renderRows(); };
   $('#nextPage').onclick = () => { page++; renderRows(); };
-  $('#pageSize').onchange = (e) => { PAGE_SIZE = parseInt(e.target.value, 10); page = 0; renderRows(); };
+  $('#pageSize').onchange = (e) => { PAGE_SIZE = parseInt(e.target.value, 10); tableView.setPageSize(PAGE_SIZE); page = 0; renderRows(); };
   $('#uploadBtn').onclick = () => navigate('upload');
   $('#rawClear').onclick = async () => {
     if (!await confirmDialog('Sigur ștergi <b>toate</b> facturile? Această acțiune nu poate fi anulată.')) return;
@@ -6866,7 +6896,7 @@ async function renderDataSet(root) {
         </table>
       </div>
       <div class="pagination">
-        <button id="dsPrev">‹</button><span id="dsPageInfo"></span><button id="dsNext">›</button>
+        <button id="dsPrev">‹</button><span id="dsPageInfo"></span><button id="dsNext">›</button><select id="dsPageSize" aria-label="Rânduri pe pagină"><option value="25">25/pag</option><option value="50" selected>50/pag</option><option value="100">100/pag</option><option value="250">250/pag</option></select>
       </div>
       <div class="totals" id="dsTotals"></div>
     </div>` : ''}
@@ -6966,15 +6996,23 @@ async function renderDataSet(root) {
 
   if (data.length === 0) return;
 
-  let page = 0; const PAGE_SIZE = 50;
+  let page = 0; let PAGE_SIZE = 50;
+  const tableView = QcxTable.create({body:'dsBody',key:'dataSet',title:'DataSet',identify:r=>r.id,currency:r=>r.Moneda,onChange:()=>{page=0;PAGE_SIZE=tableView.getPageSize();$('#dsPageSize').value=String(PAGE_SIZE);renderRows();},columns:[
+    ...['Canal','Flux','CodTipFactura','TipTranzactie','Articol','ContTert','ContTz','Referinta','Moneda'].map(key=>({key})),
+    {key:'CursValutar',type:'number',decimals:4}, {key:'Valoare',type:'number',total:'sum',currency:true},
+    {key:'Ron_Val',type:'number',total:'sum'}, {key:'Ron_TVA',type:'number',total:'sum'}
+  ]});
+  PAGE_SIZE = tableView.getPageSize();
+  $('#dsPageSize').value = String(PAGE_SIZE);
   const renderRows = () => {
     const f = ($('#dsFilter').value||'').toLowerCase();
     const cf = $('#dsCanal').value;
-    const filtered = data.filter(r => {
+    let filtered = data.filter(r => {
       if (cf && r.Canal !== cf) return false;
       if (!f) return true;
       return Object.values(r).some(v => String(v||'').toLowerCase().includes(f));
     });
+    filtered = tableView.apply(filtered);
     const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
     if (page >= totalPages) page = totalPages - 1;
     if (page < 0) page = 0;
@@ -6995,6 +7033,9 @@ async function renderDataSet(root) {
         <td class="num">${fmtNum(r.Ron_TVA)}</td>
       </tr>
     `).join('');
+    tableView.rendered(slice);
+    $('#dsPrev').disabled = page === 0;
+    $('#dsNext').disabled = page >= totalPages - 1;
     $('#dsPageInfo').textContent = `Pagina ${page+1} / ${totalPages} (${filtered.length} rânduri)`;
     const tVal = filtered.reduce((a, r) => a + (r.Ron_Val || 0), 0);
     const tTva = filtered.reduce((a, r) => a + (r.Ron_TVA || 0), 0);
@@ -7009,6 +7050,7 @@ async function renderDataSet(root) {
   $('#dsCanal').onchange = () => { page = 0; renderRows(); };
   $('#dsPrev').onclick = () => { page--; renderRows(); };
   $('#dsNext').onclick = () => { page++; renderRows(); };
+  $('#dsPageSize').onchange = e => { PAGE_SIZE = Number(e.target.value); tableView.setPageSize(PAGE_SIZE); page = 0; renderRows(); };
 
   $('#exportBtn').onclick = () => exportDataSetToExcel(data);
 }
@@ -8055,6 +8097,7 @@ async function renderJurnal(root) {
   let curArticol = '';  // '' = toate articolele
 
   let _lastNoteRows = [];
+  let tableView = null;
 
   function getLunis() {
     return [...new Set(ds.filter(r => r.An === curAn).map(r => r.Luna))].sort((a, b) => a - b);
@@ -8150,6 +8193,11 @@ async function renderJurnal(root) {
     $('#jPrint').onclick     = () => printJurnal();
     $('#jExportXls').onclick = () => exportJurnalToExcel();
 
+    tableView = QcxTable.create({body:'jNoteBody',key:'jurnal',title:'Jurnal contabil',identify:r=>r[0],currency:r=>r[5],onChange:()=>renderNotes(),columns:[
+      {key:'0',label:'NDP'},{key:'1',label:'Data',type:'date'},{key:'2',label:'Cont D'}, {key:'3',label:'Cont C'},
+      {key:'4',label:'Suma RON',type:'number',total:'sum'},{key:'5',label:'Moneda'},
+      {key:'6',label:'Curs Valutar',type:'number',decimals:4},{key:'7',label:'Suma',type:'number',total:'sum',currency:true},{key:'8',label:'Explicații'}
+    ]});
     render();
   }
 
@@ -8201,6 +8249,7 @@ async function renderJurnal(root) {
       $('#jNoteBody').innerHTML = '<tr><td colspan="9" class="empty">Niciun rezultat pentru filtrele selectate.</td></tr>';
       $('#jNoteFoot').innerHTML = '';
       $('#jGrandTotal').textContent = '0,00';
+      renderNotes();
       return;
     }
 
@@ -8211,7 +8260,6 @@ async function renderJurnal(root) {
     // NDP prefix: J{An}{Luna} or J{An}
     const ndpPrefix = curLuna === '' ? `J${curAn}` : `J${curAn}${pad2(curLuna)}`;
 
-    const html = [];
     let nrCrt = 0;
     let totalSumaRON = 0;
 
@@ -8237,46 +8285,30 @@ async function renderJurnal(root) {
       if (valNet > 0) {
         nrCrt++;
         const ndp = `${ndpPrefix}-${nrCrt}`;
-        html.push(`<tr class="note-net-row">
-          <td class="num"><b>${ndp}</b></td>
-          <td>${decontDate}</td>
-          <td class="num"><b>${esc(dNet)}</b></td>
-          <td class="num"><b>${esc(cNet)}</b></td>
-          <td class="num col-ron"><b>${fmtNum(valNet)}</b></td>
-          <td>${esc(g.Moneda || 'RON')}</td>
-          <td class="num">${fmtNum(curs, 4)}</td>
-          <td class="num col-orig">${fmtNum(valNetOrig)}</td>
-          <td>${esc(explNet)}</td>
-        </tr>`);
         _lastNoteRows.push([ndp, decontDate, dNet, cNet, valNet, g.Moneda || 'RON', curs, valNetOrig, explNet]);
         totalSumaRON += valNet;
       }
       if (valTVA > 0) {
         nrCrt++;
         const ndp = `${ndpPrefix}-${nrCrt}`;
-        html.push(`<tr class="note-vat-row">
-          <td class="num"><b>${ndp}</b></td>
-          <td>${decontDate}</td>
-          <td class="num"><b>${esc(dTVA)}</b></td>
-          <td class="num"><b>${esc(cTVA)}</b></td>
-          <td class="num col-ron"><b>${fmtNum(valTVA)}</b></td>
-          <td>${esc(g.Moneda || 'RON')}</td>
-          <td class="num">${fmtNum(curs, 4)}</td>
-          <td class="num col-orig">${fmtNum(valTVAOrig)}</td>
-          <td>${esc(explTVA)}</td>
-        </tr>`);
         _lastNoteRows.push([ndp, decontDate, dTVA, cTVA, valTVA, g.Moneda || 'RON', curs, valTVAOrig, explTVA]);
         totalSumaRON += valTVA;
       }
     });
 
-    $('#jNoteBody').innerHTML = html.join('');
     $('#jNoteFoot').innerHTML = `<tr class="cz-total-yellow cz-total-emph">
       <td colspan="4" class="cz-total-label"><b>Total D = Total C</b></td>
       <td class="num col-ron"><b>${fmtNum(totalSumaRON)}</b></td>
       <td colspan="4"></td>
     </tr>`;
     $('#jGrandTotal').textContent = fmtNum(totalSumaRON);
+    renderNotes();
+  }
+
+  function renderNotes() {
+    const rows = tableView.apply(_lastNoteRows);
+    $('#jNoteBody').innerHTML = rows.map(r=>`<tr>${r.map((v,i)=>`<td${[4,6,7].includes(i)?' class="num"':''}>${esc([4,7].includes(i)?fmtNum(v):i===6?fmtNum(v,4):v)}</td>`).join('')}</tr>`).join('') || '<tr><td colspan="9" class="empty">Niciun rezultat.</td></tr>';
+    tableView.rendered(rows);
   }
 
   function exportJurnalToExcel() {
