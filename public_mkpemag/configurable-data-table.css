@@ -2,7 +2,7 @@
 .qdt-toolbar input,.qdt-toolbar select { max-width:220px; }
 .qdt-toolbar .btn,.qdt-toolbar .btn-icon { white-space:nowrap; }
 .qdt-toolbar label { display:flex;align-items:center;gap:.35rem; }
-.qdt-table { width:max-content!important;min-width:100%;table-layout:auto!important; }
+.qdt-table { min-width:0!important;table-layout:fixed!important; }
 .qdt-table th { position:relative; }
 .qdt-sort { border:0;background:none;color:inherit;font:inherit;font-weight:600;padding:0 .8rem 0 0;text-align:inherit;cursor:pointer;white-space:normal; }
 .qdt-resize { position:absolute;right:0;top:0;height:100%;width:7px;cursor:col-resize;touch-action:none; }
@@ -37,3 +37,21 @@
 .qdt-table thead { z-index:6; }
 .qdt-group td { position:sticky;top:calc(var(--qdt-header-height,40px) + var(--qdt-group-level,0) * 35px);height:34px;box-sizing:border-box;z-index:5;padding:0 .45rem!important; }
 .qdt-group-label { position:sticky;left:36px;width:max-content;max-width:calc(100vw - 80px);height:34px;line-height:34px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+
+.qdt-grouping-row th { background:var(--surface-2);padding:.4rem!important; }
+.qdt-grouping { display:flex;align-items:center;gap:.4rem;white-space:nowrap; }
+.qdt-group-chip { display:inline-flex;align-items:center;gap:.3rem;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:.2rem .4rem;color:var(--text); }
+.qdt-group-chip button,.qdt-group-toggle { border:0;background:transparent;color:inherit;font:inherit;cursor:pointer;padding:0 .2rem; }
+.qdt-group-chip button:disabled { opacity:.3;cursor:default; }
+.qdt-group-toggle { line-height:34px; }
+.qdt-grouping select { max-width:220px; }
+.qdt-grouping-row { height:40px; }
+@media print { .qdt-grouping-row { display:none!important; } }
+
+.qdt-table th:not(.qdt-select),.qdt-table td:not(.qdt-select) { box-sizing:border-box;overflow:hidden; }
+.qdt-table tbody tr:not(.qdt-group):not(.qdt-footer) td:not(.qdt-select) { padding:0!important; }
+.qdt-cell-content { overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:4px 8px; }
+.qdt-table thead tr:not(.qdt-grouping-row) th:not(.qdt-select) { padding:0!important; }
+.qdt-sort { box-sizing:border-box;display:block;width:100%;overflow:hidden;text-overflow:ellipsis;padding:4px 8px; }
+
+.qdt-table .qdt-group-chip,.qdt-table .qdt-group-chip b,.qdt-table .qdt-group-chip button { color:var(--text)!important; }

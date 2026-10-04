@@ -1,7 +1,7 @@
 <?php
 /**
  * EcR Deconturi eMag — Front Controller
- * Build: 2026.10.04.2 — tabele detaliate configurabile
+ * Build: 2026.10.04.3 — tabele detaliate configurabile
  * ------------------------------------------------------------------
  * Session gate. Unauthenticated visitors only see a tiny login (or
  * first-time setup) page. The full application HTML is served only
@@ -291,14 +291,14 @@ header('X-Frame-Options: SAMEORIGIN');
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>smartBIZ Copilot · EcR Deconturi eMag · 2026.10.04.2</title>
+<title>smartBIZ Copilot · EcR Deconturi eMag · 2026.10.04.3</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
-<link rel="stylesheet" href="configurable-data-table.css?v=2026.10.04.2">
-<script src="configurable-data-table.js?v=2026.10.04.2"></script>
+<link rel="stylesheet" href="configurable-data-table.css?v=2026.10.04.3">
+<script src="configurable-data-table.js?v=2026.10.04.3"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -8364,7 +8364,7 @@ async function renderJurnal(root) {
 
 // ====================== RAPORT DINAMIC (pivot configurabil din DataSet) ======================
 async function renderRaportDinamic(root) {
-  const ds = await dbGetAll('dataSet');
+  const ds = (await dbGetAll('dataSet')).map(row=>({...row}));
   if (ds.length === 0) {
     root.innerHTML = `
       <div class="page-head"><h1>Raport dinamic</h1><p class="subtitle">Tabel pivotant configurabil din DataSet — alegi coloane, filtre și grupare.</p></div>
@@ -8408,6 +8408,12 @@ async function renderRaportDinamic(root) {
     { key: 'TipTaxare',        label: 'Tip Taxare',       type: 'text' },
     { key: '_count',           label: 'Nr documente',     type: 'num',  virtual: true, default: true },
   ];
+  const dateSources=ALL_COLS.filter(c=>c.type==='date');
+  dateSources.forEach(source=>['year','month'].forEach(part=>{
+    const key=`__qdt_${part}_${source.key}`;
+    ALL_COLS.push({key,label:`${part==='year'?'An':'Lună'} (${source.label})`,type:'num',derived:true});
+    ds.forEach(row=>{const time=QcxTable.date(row[source.key]);row[key]=time===null?null:part==='year'?new Date(time).getUTCFullYear():new Date(time).getUTCMonth()+1;});
+  }));
   const colByKey = Object.fromEntries(ALL_COLS.map(c => [c.key, c]));
 
   // Pre-compute unique values per column (for filter dropdowns)
@@ -8775,15 +8781,9 @@ async function renderRaportDinamic(root) {
     root.innerHTML = `
       <div class="page-head">
         <h1>Raport dinamic<button type="button" class="page-help-btn" id="rPageHelpBtn" title="Ce poți face pe această pagină" aria-label="Ajutor pentru această pagină">i</button></h1>
-        <div class="page-help-popover" id="rPageHelpPopover" hidden role="dialog" aria-labelledby="rPageHelpTitle">
-          <div class="page-help-popover-head">
-            <span class="page-help-popover-title" id="rPageHelpTitle">Cum folosești pagina</span>
-            <button type="button" class="page-help-popover-close" id="rPageHelpClose" aria-label="Închide">×</button>
-          </div>
-          <div class="page-help-popover-body">
-            Bifează coloanele vizibile, aplică filtre și opțional grupează. <b>Σ</b> marchează coloanele numerice sumabile.
-          </div>
-        </div>
+        <template id="rPageHelpContent"><div class="help-body">
+          Bifează coloanele vizibile, aplică filtre și opțional grupează. <b>Σ</b> marchează coloanele numerice sumabile.
+        </div></template>
       </div>
 
       <div class="card r-config">
@@ -8924,6 +8924,11 @@ async function renderRaportDinamic(root) {
           </div><!-- /.r-config-grid -->
         </details><!-- /parent -->
 
+        <div class="qdt-toolbar">
+          <label>Coloană dată <select id="rVirtualSource" aria-label="Coloană dată pentru An / Lună">${dateSources.map(c=>`<option value="${escAttr(c.key)}">${esc(c.label)}</option>`).join('')}</select></label>
+          <label>Coloană virtuală <select id="rVirtualPart" aria-label="Tip coloană virtuală"><option value="year">An</option><option value="month">Lună</option><option value="both">An și Lună</option></select></label>
+          <button type="button" class="btn" id="rAddVirtual">Adaugă An / Lună</button>
+        </div>
         <div class="r-actions">
           <button class="btn btn-primary" id="rApply">🔄 Aplică</button>
           <button class="btn" id="rReset" title="Comută afișarea valorilor duplicate consecutive">↺ ${state.compact ? 'Afișează duplicate' : 'Compactează'}</button>
@@ -8935,6 +8940,15 @@ async function renderRaportDinamic(root) {
         <div class="empty">Apasă "Aplică" pentru a genera raportul.</div>
       </div>
     `;
+
+    root.querySelector('#rAddVirtual').onclick=()=>{
+      const source=root.querySelector('#rVirtualSource').value,part=root.querySelector('#rVirtualPart').value;
+      (part==='both'?['year','month']:[part]).forEach(p=>{const col=state.cols.find(c=>c.key===`__qdt_${p}_${source}`);if(col)col.visible=true;});
+      activeConfigName=null;buildUI();render();
+    };
+    root.querySelector('#rPageHelpBtn').onclick = e => {
+      QcxTable.showInfo('Cum folosești pagina', root.querySelector('#rPageHelpContent').innerHTML, e.currentTarget);
+    };
 
     // Bind config changes
     root.querySelectorAll('[data-col]').forEach(el => {
@@ -9609,15 +9623,15 @@ async function renderRaportDinamic(root) {
     // clear it. Hidden entirely when no filters are active.
     const filtersInfoHtml = activeFilters.length === 0 ? '' : `
       <div class="r-filters-info">
-        <button type="button" class="r-filters-info-btn" id="rFiltersInfoBtn" title="${activeFilters.length} filtru/filtre active — click pentru detalii">
+        <button type="button" class="r-filters-info-btn" id="rFiltersInfoBtn" aria-label="Informații filtre active" title="${activeFilters.length} filtru/filtre active — click pentru detalii">
           <span class="r-filters-info-icon">i</span>
           <span class="r-filters-info-count">${activeFilters.length}</span>
           <span class="r-filters-info-label">${activeFilters.length === 1 ? 'filtru' : 'filtre'}</span>
         </button>
-        <div class="r-filters-info-popover" id="rFiltersInfoPopover" hidden>
+        <template id="rFiltersInfoContent">
           <div class="r-filters-info-popover-head">
             <span class="r-filters-info-popover-title">Filtre active</span>
-            <button type="button" class="r-filters-clear-all" id="rFiltersClearAll" title="Elimină toate filtrele">curăță toate</button>
+            <button type="button" class="r-filters-clear-all" data-clear-all title="Elimină toate filtrele">curăță toate</button>
           </div>
           <div class="r-filters-info-popover-body">
             ${activeFilters.map(f => `
@@ -9627,7 +9641,7 @@ async function renderRaportDinamic(root) {
                 <button type="button" class="r-filter-chip-clear" data-col="${esc(f.key)}" title="Elimină filtrul">×</button>
               </div>`).join('')}
           </div>
-        </div>
+        </template>
       </div>`;
 
     resEl.innerHTML = `
@@ -9673,52 +9687,23 @@ async function renderRaportDinamic(root) {
       };
     }
 
-    // Filter chip × — removes a single filter from state, then re-renders
-    // both the configurator (so the dropdown returns to "(toate)") and
-    // the report itself.
-    resEl.querySelectorAll('.r-filter-chip-clear').forEach(btn => {
-      btn.onclick = (e) => {
-        e.stopPropagation();   // don't bubble to the outside-click closer
-        const key = btn.dataset.col;
-        const s = state.cols.find(c => c.key === key);
-        if (s) s.filter = '';
-        state.activeConfigName = null;   // diverged from saved config
-        buildUI();   // refresh the filter dropdown styling
-        render();    // refresh the report (and the chips themselves)
-      };
-    });
-    // "Curăță toate" — single click wipes every active filter.
-    const clearAllBtn = document.getElementById('rFiltersClearAll');
-    if (clearAllBtn) {
-      clearAllBtn.onclick = (e) => {
-        e.stopPropagation();
-        state.cols.forEach(c => { c.filter = ''; });
-        state.activeConfigName = null;
+    const infoBtn = resEl.querySelector('#rFiltersInfoBtn');
+    if(infoBtn)infoBtn.onclick = e => {
+      const dlg=QcxTable.showInfo('Filtre active', resEl.querySelector('#rFiltersInfoContent').innerHTML, e.currentTarget);
+      const clearFilters = key => {
+        state.cols.forEach(c => { if(key===null || c.key===key)c.filter=''; });
+        state.activeConfigName=null;
+        dlg.close();
         buildUI();
         render();
+        // Continue showing remaining filters after removing one.
+        if(key!==null)root.querySelector('#rFiltersInfoBtn')?.click();
       };
-    }
-    // Toggle the filters popover. Clicking the i-button opens/closes it.
-    // Clicking anywhere else closes it. The handler is added once and
-    // cleaned up on the next render() (since DOM is rebuilt).
-    const infoBtn = document.getElementById('rFiltersInfoBtn');
-    const popover = document.getElementById('rFiltersInfoPopover');
-    if (infoBtn && popover) {
-      infoBtn.onclick = (e) => {
-        e.stopPropagation();
-        popover.hidden = !popover.hidden;
-      };
-      // Outside-click to close. Listener is added at document level; since
-      // render() rebuilds DOM, stale listeners are harmless (the elements
-      // they target no longer exist), but let's be defensive and use
-      // { once: false } and attach only when the popover is shown.
-      document.addEventListener('click', (e) => {
-        if (popover.hidden) return;
-        if (!popover.contains(e.target) && e.target !== infoBtn && !infoBtn.contains(e.target)) {
-          popover.hidden = true;
-        }
+      dlg.overlay.querySelectorAll('.r-filter-chip-clear').forEach(btn => {
+        btn.onclick=()=>clearFilters(btn.dataset.col);
       });
-    }
+      dlg.overlay.querySelector('[data-clear-all]').onclick=()=>clearFilters(null);
+    };
 
     // Bind sort on header click
     resEl.querySelectorAll('th[data-sort-key]').forEach(th => {
@@ -9776,31 +9761,6 @@ async function renderRaportDinamic(root) {
   }
 
   buildUI();
-
-  // Page-help superscript ⓘ — toggles a small popover with the page hint.
-  // Wired here (after buildUI created the page header DOM) so the elements
-  // exist. Outside-click and × close the popover; Escape too.
-  const helpBtn   = document.getElementById('rPageHelpBtn');
-  const helpPop   = document.getElementById('rPageHelpPopover');
-  const helpClose = document.getElementById('rPageHelpClose');
-  if (helpBtn && helpPop) {
-    helpBtn.onclick = (e) => {
-      e.stopPropagation();
-      helpPop.hidden = !helpPop.hidden;
-    };
-    if (helpClose) {
-      helpClose.onclick = (e) => { e.stopPropagation(); helpPop.hidden = true; };
-    }
-    document.addEventListener('click', (e) => {
-      if (helpPop.hidden) return;
-      if (!helpPop.contains(e.target) && e.target !== helpBtn) {
-        helpPop.hidden = true;
-      }
-    });
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && !helpPop.hidden) helpPop.hidden = true;
-    });
-  }
 
   // If any saved config is marked as the default, auto-apply it now.
   // Otherwise the user stays on freshState (selector shows "Custom").

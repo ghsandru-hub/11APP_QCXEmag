@@ -6,7 +6,7 @@ for(const code of scripts)new vm.Script(code);
 const source=fs.readFileSync(path.join(root,'public_mkpemag/configurable-data-table.js'),'utf8');new vm.Script(source);
 const dom=new JSDOM('<html><body><main id="content"></main><div id="toasts"></div></body></html>',{url:'https://qcx.test/',runScripts:'outside-only',pretendToBeVisual:true});
 const w=dom.window;
-w.eval(source+'\n'+scripts.map(s=>s.replace("window.addEventListener('DOMContentLoaded', init);",'')).join('\n')+'\nObject.assign(window,{QcxTable,setCurrentUser,renderRawData,renderDataSet,renderNomenclator,renderMarketplaces,renderCursValutar,renderJurnal});window.useStores=stores=>{dbGetAll=async s=>stores[s]||[];dbCount=async s=>(stores[s]||[]).length;};');
+w.eval(source+'\n'+scripts.map(s=>s.replace("window.addEventListener('DOMContentLoaded', init);",'')).join('\n')+'\nObject.assign(window,{QcxTable,setCurrentUser,renderRawData,renderDataSet,renderNomenclator,renderMarketplaces,renderCursValutar,renderJurnal,renderRaportDinamic});window.useStores=stores=>{dbGetAll=async s=>stores[s]||[];dbCount=async s=>(stores[s]||[]).length;};');
 w.eval("setCurrentUser({id:1,is_admin:true});");
 const fixtureRow={id:1,Canal:'RO',IDSeller:1441,Moneda:'RON',Flux:'Cumparare | Intrare',CodTipFactura:'FC',TipFactura:'FC',DataEmitere:'2026-10-01',DataScadenta:'2026-10-31',SerieNumar:'ABCDEF-123',Referinta:'ABC123',Valoare:100,ValoareFaraTVA:100,ValoareTVA:21,ValoareCuTVA:121,CotaTVA:21,Ron_Val:100,Ron_TVA:21,An:2026,Luna:10,Articol:'Comision marketplace',ContTert:401,ContTz:622,CursValutar:1,TipTranzactie:'1_Recunoastere',NaturaEconomica:'Comision',TipTaxare:'Taxare normala'};
 const stores={rawData:Array.from({length:120},(_,i)=>({...fixtureRow,id:i+1,ValoareFaraTVA:i+1})),dataSet:Array.from({length:120},(_,i)=>({...fixtureRow,id:i+1,Ron_Val:i+1})),marketplaces:[{IdSeller:1441,Marketplace:'RO',Moneda:'RON',AF:'RO',CotaTVA:21,Demultiplicator:1,Tara:'România',Localitate:'București'}],nomenclator:[{Cod:'FC',Tranzactie:'Comision',Articol:'Comision',TipTVA:1,Status:'Activ','Cont factura':401,'Cont articol':622}],cursValutar:[{Data:'2026-10-01',Valuta:'EUR',Demultiplicator:1,Curs:5.1,Sursa:'BNR'}],settings:[]};
@@ -82,7 +82,7 @@ function click(el){assert.ok(el,'control exists');el.click();}
   click(w.document.querySelector('.qdt-overlay .modal-close'));
   // Grouping hides grouped columns only in the table, preserving them in exports.
   view.setState({...view.getState(),groups:['c','n']});
-  assert.equal(rootEl.querySelectorAll('thead th').length,1);
+  assert.equal(rootEl.querySelectorAll('thead tr:not(.qdt-grouping-row) th').length,1);
   assert.equal(rootEl.querySelectorAll('.qdt-group[data-level="0"]').length,2);
   assert.equal(rootEl.querySelectorAll('.qdt-group[data-level="1"]').length,2);
   assert.match(rootEl.querySelector('.qdt-group').textContent,/EUR/);
@@ -90,6 +90,15 @@ function click(el){assert.ok(el,'control exists');el.click();}
   click(rootEl.querySelector('[data-qdt=config]'));
   assert.equal(w.document.querySelector('select[name=group]').selectedOptions.length,2);
   click(w.document.querySelector('.qdt-overlay .modal-close'));
+  click(rootEl.querySelector('[data-collapse-all]'));
+  assert.equal(rootEl.querySelectorAll('#testBody tr:not(.qdt-group):not([hidden])').length,0,'collapse all hides records');
+  assert.equal(rootEl.querySelectorAll('.qdt-group[data-level="1"]').length,0,'collapsed parents hide child headers');
+  click(rootEl.querySelector('[data-collapse-all]'));
+  assert.equal(rootEl.querySelectorAll('#testBody tr:not(.qdt-group):not([hidden])').length,2);
+  click(rootEl.querySelector('.qdt-group-toggle'));
+  assert.equal(rootEl.querySelector('.qdt-group-toggle').getAttribute('aria-expanded'),'false');
+  click(rootEl.querySelector('.qdt-group-toggle'));
+  assert.equal(rootEl.querySelector('.qdt-group-toggle').getAttribute('aria-expanded'),'true');
   // Older single-column saved grouping is migrated.
   view.setState({...view.getState(),groups:undefined,group:'c'});
   assert.equal(view.getState().groups.join(','),'c');
@@ -104,5 +113,63 @@ function click(el){assert.ok(el,'control exists');el.click();}
   pinForm.dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
   assert.equal(view.getState().columns.map(c=>c.key).join(','),'c,n');
   assert.equal(rootEl.querySelectorAll('thead .qdt-pin').length,2);
+  // Zero width survives reconciliation and keyboard resizing, with recovery in settings.
+  view.setState({...view.getState(),columns:view.getState().columns.map(c=>({...c,width:c.key==='n'?0:c.width}))});
+  assert.equal(view.getState().columns.find(c=>c.key==='n').width,0);
+  assert.equal(rootEl.querySelector('button[aria-label="Sortează Valeur"]'),null);
+  view.setState({...view.getState(),columns:view.getState().columns.map(c=>({...c,width:c.key==='n'?5:c.width}))});
+  rootEl.querySelector('[aria-label="Lățime Valeur"]').dispatchEvent(new w.KeyboardEvent('keydown',{key:'ArrowLeft',bubbles:true}));
+  assert.equal(rootEl.querySelector('button[aria-label="Sortează Valeur"]'),null);
+  // Calendar columns are computed, persisted and exported without changing imported rows.
+  await w.renderRawData(rootEl);
+  click(rootEl.querySelector('[data-qdt=config]'));
+  let virtualForm=w.document.querySelector('.qdt-settings');
+  virtualForm.elements.virtualSource.value='DataEmitere';virtualForm.elements.virtualPart.value='both';
+  click(virtualForm.querySelector('[data-add-virtual]'));click(virtualForm.querySelector('[data-add-virtual]'));
+  assert.equal(virtualForm.querySelectorAll('tr[data-key^="__qdt_"]').length,2,'no duplicate virtual columns');
+  virtualForm.dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
+  assert.ok(rootEl.querySelector('button[aria-label="Sortează An (Data emitere)"]'));
+  assert.equal(stores.rawData[0].__qdt_year_DataEmitere,undefined);
+  await w.renderRawData(rootEl);
+  click(rootEl.querySelector('[data-qdt=config]'));
+  virtualForm=w.document.querySelector('.qdt-settings');
+  assert.equal(virtualForm.querySelectorAll('tr[data-key^="__qdt_"]').length,2,'virtual definitions persist');
+  virtualForm.querySelector('[data-key="__qdt_month_DataEmitere"] [data-field=op]').value='eq';
+  virtualForm.querySelector('[data-key="__qdt_month_DataEmitere"] [data-field=filter]').value='10';
+  virtualForm.dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
+  click(rootEl.querySelector('[data-qdt=excel]'));
+  assert.equal(exported[1][exported[0].indexOf('An (Data emitere)')],2026);
+  assert.equal(exported[1][exported[0].indexOf('Lună (Data emitere)')],10);
+  // Every detailed table exposes both its help modal and row details.
+  for(const renderer of ['renderRawData','renderDataSet','renderNomenclator','renderMarketplaces','renderCursValutar','renderJurnal']){
+    await w[renderer](rootEl);
+    click(rootEl.querySelector('[data-qdt=help]'));
+    assert.ok(w.document.querySelector('.qdt-overlay [role=dialog]'),renderer+' help');
+    click(w.document.querySelector('.qdt-overlay .modal-close'));
+    click(rootEl.querySelector('.qdt-detail'));
+    assert.ok(w.document.querySelector('.qdt-overlay .qdt-details'),renderer+' details');
+    click(w.document.querySelector('.qdt-overlay .modal-close'));
+  }
+  w.eval('dbGet=async()=>null;');
+  await w.renderRaportDinamic(rootEl);
+  rootEl.querySelector('#rVirtualPart').value='both';click(rootEl.querySelector('#rAddVirtual'));
+  assert.ok(rootEl.querySelector('[data-key="__qdt_year_DataEmitere"]'));
+  assert.equal(stores.dataSet[0].__qdt_year_DataEmitere,undefined,'report uses a copy');
+  click(rootEl.querySelector('#rPageHelpBtn'));
+  assert.match(w.document.querySelector('.qdt-overlay').textContent,/Cum folosești pagina/);
+  click(w.document.querySelector('.qdt-overlay .modal-close'));
+  click(rootEl.querySelector('#rSelectAll')); // Rebuilds page header and its buttons.
+  click(rootEl.querySelector('#rPageHelpBtn'));
+  assert.ok(w.document.querySelector('.qdt-overlay [role=dialog]'),'page help survives buildUI');
+  click(w.document.querySelector('.qdt-overlay .modal-close'));
+  const reportFilter=rootEl.querySelector('[data-prop=filter]');
+  reportFilter.value=reportFilter.tagName==='SELECT'?reportFilter.options[reportFilter.options.length-1].value:'FC';
+  reportFilter.dispatchEvent(new w.Event('change'));
+  click(rootEl.querySelector('#rApply'));
+  click(rootEl.querySelector('#rFiltersInfoBtn'));
+  assert.ok(w.document.querySelector('.qdt-overlay .r-filter-chip-clear'));
+  click(w.document.querySelector('.qdt-overlay [data-clear-all]'));
+  assert.equal(rootEl.querySelector('#rFiltersInfoBtn'),null,'clear all still updates report');
+  assert.equal(w.document.querySelector('.qdt-overlay'),null);
   console.log('PASS: syntax, typed filters, dates, sort, selection, all-result export, currency-safe totals, configuration restoration, derived fields, six screens, original CRUD modal, user isolation');
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>dom.window.close());
