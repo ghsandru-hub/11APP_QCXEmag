@@ -31,9 +31,6 @@
 @media(pointer:coarse) { .qdt-detail { width:32px!important;height:32px!important; }.qdt-resize { width:12px; } }
 
 .qdt-settings input[type=search] { width:220px;max-width:100%; }
-.qdt-settings select[name=group] { min-height:85px; }
-.qdt-settings .qdt-toolbar label:first-child { flex-wrap:wrap; }
-.qdt-settings .qdt-toolbar label:first-child .hint { max-width:180px; }
 .qdt-table thead { z-index:6; }
 .qdt-group td { position:sticky;top:calc(var(--qdt-header-height,40px) + var(--qdt-group-level,0) * 35px);height:34px;box-sizing:border-box;z-index:5;padding:0 .45rem!important; }
 .qdt-group-label { position:sticky;left:36px;width:max-content;max-width:calc(100vw - 80px);height:34px;line-height:34px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }

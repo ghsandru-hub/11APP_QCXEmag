@@ -2,9 +2,9 @@
 
 Aplicația smartBIZ Copilot pentru deconturile eMag Marketplace, cu backend PHP și SQLite.
 
-Build local: `2026.10.04.4`. Aplicația online: https://qcxemag.aiall.ro/.
+Build local: `2026.10.04.5`. Aplicația online: https://qcxemag.aiall.ro/.
 
-Ultimul deploy verificat: `2026.10.04.3`; noul build necesită publicarea celor trei fișiere din `public_mkpemag`: `index.php`, `configurable-data-table.js` și `configurable-data-table.css`.
+Ultimul deploy verificat: `2026.10.04.4`; noul build necesită publicarea celor trei fișiere din `public_mkpemag`: `index.php`, `configurable-data-table.js` și `configurable-data-table.css`.
 
 ## Structură și publicare
 
@@ -44,3 +44,5 @@ Pentru buildul 2026.10.04.2: verificare sintaxă JS și teste DOM (inclusiv grup
 Cerințele și comportamentul tabelelor sunt consemnate în [TABEL.md](TABEL.md). Buildul local 2026.10.04.3 adaugă modale info, grupare pe linie separată cu restrângere/extindere, coloane virtuale An/Lună și lățimi până la zero.
 
 Indentarea tabelelor detaliate este de 5 pt per nivel: grupul principal are nivelul 0, subgrupurile adaugă câte 5 pt, iar liniile de date sunt indentate un nivel după ultimul grup. Un reper vertical în prima coloană de date face vizibil nivelul inclusiv pentru conținut numeric aliniat la dreapta.
+
+Gruparea tabelelor detaliate se configurează exclusiv pe linia de deasupra antetului. Modalul Coloane și filtre nu mai conține selector de grupare; aplicarea setărilor de coloane păstrează grupările existente.

@@ -53,7 +53,7 @@ function click(el){assert.ok(el,'control exists');el.click();}
   stores.cursValutar=Array.from({length:60},(_,i)=>({Data:'2026-10-01',Valuta:'EUR',Demultiplicator:1,Curs:5+i/100,Sursa:'BNR'}));
   await w.renderCursValutar(rootEl);assert.equal(rootEl.querySelectorAll('#cursBody tr').length,50);click(rootEl.querySelector('[data-next]'));assert.equal(rootEl.querySelectorAll('#cursBody tr').length,10);assert.match(rootEl.querySelector('#cursBody').textContent,/EUR/);
   await w.renderJurnal(rootEl);assert.ok(rootEl.querySelectorAll('#jNoteBody tr').length>0);assert.equal(rootEl.querySelector('#jGrandTotal').textContent,'9.780,00');
-  click(rootEl.querySelector('[data-qdt=config]'));const group=w.document.querySelector('.qdt-overlay select[name=group]');group.value='5';w.document.querySelector('.qdt-overlay form').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));assert.ok(rootEl.querySelector('.qdt-group'));
+  const group=rootEl.querySelector('select[aria-label="Adaugă coloană de grupare"]');group.value='5';group.dispatchEvent(new w.Event('change'));assert.ok(rootEl.querySelector('.qdt-group'));
   // Configurations round-trip through the save/apply UI.
   click(rootEl.querySelector('[data-qdt=save]'));
   let saveForm=w.document.querySelector('.qdt-overlay form');saveForm.elements.name.value='Jurnal grupat';
@@ -91,8 +91,9 @@ function click(el){assert.ok(el,'control exists');el.click();}
   assert.match(rootEl.querySelector('.qdt-group').textContent,/EUR/);
   assert.equal(view.exportMatrix()[0].join(','),'Devise,Valeur');
   click(rootEl.querySelector('[data-qdt=config]'));
-  assert.equal(w.document.querySelector('select[name=group]').selectedOptions.length,2);
-  click(w.document.querySelector('.qdt-overlay .modal-close'));
+  assert.equal(w.document.querySelector('select[name=group]'),null,'grouping selector is outside the modal');
+  w.document.querySelector('.qdt-overlay form').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
+  assert.equal(view.getState().groups.join(','),'c,n','applying column settings retains groups');
   click(rootEl.querySelector('[data-collapse-all]'));
   assert.equal(rootEl.querySelectorAll('#testBody tr:not(.qdt-group):not([hidden])').length,0,'collapse all hides records');
   assert.equal(rootEl.querySelectorAll('.qdt-group[data-level="1"]').length,0,'collapsed parents hide child headers');
