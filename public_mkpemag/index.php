@@ -1,7 +1,7 @@
 <?php
 /**
  * EcR Deconturi eMag — Front Controller
- * Build: 2026.10.04.3 — tabele detaliate configurabile
+ * Build: 2026.10.04.4 — tabele detaliate configurabile
  * ------------------------------------------------------------------
  * Session gate. Unauthenticated visitors only see a tiny login (or
  * first-time setup) page. The full application HTML is served only
@@ -291,14 +291,14 @@ header('X-Frame-Options: SAMEORIGIN');
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>smartBIZ Copilot · EcR Deconturi eMag · 2026.10.04.3</title>
+<title>smartBIZ Copilot · EcR Deconturi eMag · 2026.10.04.4</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
-<link rel="stylesheet" href="configurable-data-table.css?v=2026.10.04.3">
-<script src="configurable-data-table.js?v=2026.10.04.3"></script>
+<link rel="stylesheet" href="configurable-data-table.css?v=2026.10.04.4">
+<script src="configurable-data-table.js?v=2026.10.04.4"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 :root {

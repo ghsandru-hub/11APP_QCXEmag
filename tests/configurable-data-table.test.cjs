@@ -85,6 +85,9 @@ function click(el){assert.ok(el,'control exists');el.click();}
   assert.equal(rootEl.querySelectorAll('thead tr:not(.qdt-grouping-row) th').length,1);
   assert.equal(rootEl.querySelectorAll('.qdt-group[data-level="0"]').length,2);
   assert.equal(rootEl.querySelectorAll('.qdt-group[data-level="1"]').length,2);
+  assert.equal(rootEl.querySelector('.qdt-group[data-level="0"] .qdt-group-label').style.paddingLeft,'0pt');
+  assert.equal(rootEl.querySelector('.qdt-group[data-level="1"] .qdt-group-label').style.paddingLeft,'5pt');
+  assert.equal(rootEl.querySelector('#testBody tr:not(.qdt-group)').style.getPropertyValue('--qdt-row-level'),'2');
   assert.match(rootEl.querySelector('.qdt-group').textContent,/EUR/);
   assert.equal(view.exportMatrix()[0].join(','),'Devise,Valeur');
   click(rootEl.querySelector('[data-qdt=config]'));
@@ -101,8 +104,11 @@ function click(el){assert.ok(el,'control exists');el.click();}
   assert.equal(rootEl.querySelector('.qdt-group-toggle').getAttribute('aria-expanded'),'true');
   // Older single-column saved grouping is migrated.
   view.setState({...view.getState(),groups:undefined,group:'c'});
+  assert.ok(rootEl.querySelector('#testBody .qdt-row-indent'));
+  assert.equal(rootEl.querySelector('#testBody tr:not(.qdt-group)').style.getPropertyValue('--qdt-row-level'),'1');
   assert.equal(view.getState().groups.join(','),'c');
   view.setState({...view.getState(),groups:[]});
+  assert.equal(rootEl.querySelector('#testBody .qdt-row-indent'),null,'ungrouped records have no indentation');
   click(rootEl.querySelector('[data-qdt=config]'));
   const pinForm=w.document.querySelector('.qdt-settings');
   for(const key of ['c','n']){

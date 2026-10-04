@@ -55,3 +55,6 @@
 .qdt-sort { box-sizing:border-box;display:block;width:100%;overflow:hidden;text-overflow:ellipsis;padding:4px 8px; }
 
 .qdt-table .qdt-group-chip,.qdt-table .qdt-group-chip b,.qdt-table .qdt-group-chip button { color:var(--text)!important; }
+
+/* Each nested group adds 5pt; its records sit one level deeper. */
+.qdt-row-indent { margin-left:calc(var(--qdt-row-level,0) * 5pt);border-left:1px solid var(--border); }

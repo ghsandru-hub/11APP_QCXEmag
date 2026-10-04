@@ -253,6 +253,7 @@ const QcxTable = (() => {
       header.querySelector('input').onchange=e=>{rows.forEach(r=>e.target.checked?selected.add(text(rowId(r))):selected.delete(text(rowId(r))));renderedSelection(rows);};
       // Group summaries use all filtered rows, including those on other pages.
       const groups=grouping();
+      domRows.forEach(tr=>{tr.style.setProperty('--qdt-row-level',groups.length);const content=tr.querySelector('.qdt-cell-content');if(content)content.classList.toggle('qdt-row-indent',groups.length>0);});
       if(groups.length){
         const buckets=new Map(),groupKey=(r,level)=>JSON.stringify(groups.slice(0,level+1).map(c=>text(get(r,c))));
         lastRows.forEach(r=>groups.forEach((_,level)=>{const k=groupKey(r,level);if(!buckets.has(k))buckets.set(k,[]);buckets.get(k).push(r);}));
@@ -270,7 +271,7 @@ const QcxTable = (() => {
             const members=buckets.get(keys[level]),gr=document.createElement('tr');
             gr.className='qdt-group';gr.dataset.level=level;
             gr.style.setProperty('--qdt-group-level',level);
-            gr.innerHTML=`<td colspan="${cols.length+1+(actionIndex>=0?1:0)}"><div class="qdt-group-label" style="padding-left:${level*16}px"><button type="button" class="qdt-group-toggle" aria-expanded="${!state.collapsedGroups.includes(keys[level])}" aria-label="${state.collapsedGroups.includes(keys[level])?'Extinde':'Restrânge'} grupul ${escape(group.label)}: ${escape(text(get(rows[i],group))||'—')}">${state.collapsedGroups.includes(keys[level])?'▸':'▾'} <b>${escape(group.label)}: ${escape(text(get(rows[i],group))||'—')}</b></button> · ${members.length} rânduri ${cols.filter(c=>c.total).map(c=>` · ${escape(c.label)} (${escape(c.total)}): ${escape(summary(members,c))}`).join('')}</div></td>`;
+            gr.innerHTML=`<td colspan="${cols.length+1+(actionIndex>=0?1:0)}"><div class="qdt-group-label" style="padding-left:${level*5}pt"><button type="button" class="qdt-group-toggle" aria-expanded="${!state.collapsedGroups.includes(keys[level])}" aria-label="${state.collapsedGroups.includes(keys[level])?'Extinde':'Restrânge'} grupul ${escape(group.label)}: ${escape(text(get(rows[i],group))||'—')}">${state.collapsedGroups.includes(keys[level])?'▸':'▾'} <b>${escape(group.label)}: ${escape(text(get(rows[i],group))||'—')}</b></button> · ${members.length} rânduri ${cols.filter(c=>c.total).map(c=>` · ${escape(c.label)} (${escape(c.total)}): ${escape(summary(members,c))}`).join('')}</div></td>`;
             gr.querySelector('button').onclick=()=>{
               const key=keys[level];state.collapsedGroups=state.collapsedGroups.includes(key)?state.collapsedGroups.filter(k=>k!==key):[...state.collapsedGroups,key];persist();onChange();
             };
